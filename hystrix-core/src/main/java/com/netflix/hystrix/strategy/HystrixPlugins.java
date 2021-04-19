@@ -37,6 +37,8 @@ import com.netflix.hystrix.strategy.properties.HystrixPropertiesStrategy;
 import com.netflix.hystrix.strategy.properties.HystrixPropertiesStrategyDefault;
 
 /**
+ * 存放全局插件，支持修改。
+ *
  * Registry for plugin implementations that allows global override and handles the retrieval of correct implementation based on order of precedence:
  * <ol>
  * <li>plugin registered globally via <code>register</code> methods in this class</li>

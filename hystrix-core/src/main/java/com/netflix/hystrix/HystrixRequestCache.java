@@ -27,6 +27,7 @@ import rx.internal.operators.CachedObservable;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * 请求缓存
  * Cache that is scoped to the current request as managed by {@link HystrixRequestVariableDefault}.
  * <p>
  * This is used for short-lived caching of {@link HystrixCommand} instances to allow de-duping of command executions within a request.
@@ -142,6 +143,7 @@ public class HystrixRequestCache {
     }
 
     /**
+     * 清除指定key的缓存
      * Clear the cache for a given cacheKey.
      * 
      * @param cacheKey

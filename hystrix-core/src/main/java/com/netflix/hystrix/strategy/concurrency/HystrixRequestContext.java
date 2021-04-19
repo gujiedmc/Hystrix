@@ -24,6 +24,11 @@ import com.netflix.hystrix.HystrixRequestCache;
 import com.netflix.hystrix.HystrixRequestLog;
 
 /**
+ * HystrixRequestContext，请求上下文。
+ * 通过 {@link #initializeContext()} 初始化上下文。
+ * 通过 {@link #shutdown()} 结束上下文。
+ *
+ *
  * Contains the state and manages the lifecycle of {@link HystrixRequestVariableDefault} objects that provide request scoped (rather than only thread scoped) variables so that multiple threads within
  * a
  * single request can share state:

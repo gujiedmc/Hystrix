@@ -23,6 +23,8 @@ import rx.functions.Func2;
 import com.netflix.hystrix.strategy.HystrixPlugins;
 
 /**
+ * Hystrix调度执行动作
+ *
  * Wrapper around {@link Func2} that manages the {@link HystrixRequestContext} initialization and cleanup for the execution of the {@link Func2}
  * 
  * @param <T>

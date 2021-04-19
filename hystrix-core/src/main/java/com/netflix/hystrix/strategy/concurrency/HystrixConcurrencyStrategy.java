@@ -35,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * 创建不同行为的线程池的工厂。
+ *
  * Abstract class for defining different behavior or implementations for concurrency related aspects of the system with default implementations.
  * <p>
  * For example, every {@link Callable} executed by {@link HystrixCommand} will call {@link #wrapCallable(Callable)} to give a chance for custom implementations to decorate the {@link Callable} with
@@ -91,6 +93,9 @@ public abstract class HystrixConcurrencyStrategy {
         }
     }
 
+    /**
+     * 创建JDK线程池
+     */
     public ThreadPoolExecutor getThreadPool(final HystrixThreadPoolKey threadPoolKey, HystrixThreadPoolProperties threadPoolProperties) {
         final ThreadFactory threadFactory = getThreadFactory(threadPoolKey);
 
@@ -100,6 +105,10 @@ public abstract class HystrixConcurrencyStrategy {
         final int maxQueueSize = threadPoolProperties.maxQueueSize().get();
         final BlockingQueue<Runnable> workQueue = getBlockingQueue(maxQueueSize);
 
+        // 如果允许动态拓展线程数量，进行计算最大线程池数量。
+        // if allow && max > core
+        // then max = max
+        // else max = core
         if (allowMaximumSizeToDivergeFromCoreSize) {
             final int dynamicMaximumSize = threadPoolProperties.maximumSize().get();
             if (dynamicCoreSize > dynamicMaximumSize) {
@@ -115,6 +124,9 @@ public abstract class HystrixConcurrencyStrategy {
         }
     }
 
+    /**
+     * 线程池工程，设置线程池名字
+     */
     private static ThreadFactory getThreadFactory(final HystrixThreadPoolKey threadPoolKey) {
         if (!PlatformSpecific.isAppEngineStandardEnvironment()) {
             return new ThreadFactory() {
@@ -134,6 +146,7 @@ public abstract class HystrixConcurrencyStrategy {
     }
 
     /**
+     * 如果maxQueueSize <= 0 ，就会使用阻塞队列
      * Factory method to provide instance of {@code BlockingQueue<Runnable>} used for each {@link ThreadPoolExecutor} as constructed in {@link #getThreadPool}.
      * <p>
      * Note: The maxQueueSize value is provided so any type of queue can be used but typically an implementation such as {@link SynchronousQueue} without a queue (just a handoff) is preferred as

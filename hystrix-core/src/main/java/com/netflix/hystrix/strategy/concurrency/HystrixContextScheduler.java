@@ -27,12 +27,22 @@ import com.netflix.hystrix.HystrixThreadPool;
 import com.netflix.hystrix.strategy.HystrixPlugins;
 
 /**
+ * Hystrix实现的rx 调度器，可以基于内部维护的线程池{@link #threadPool}和并发策略{@link #concurrencyStrategy}，
+ * 调度真实任务{@link #actualScheduler}，判断线程池队列数量和线程数量。
+ *
+ * 事实上对外的是 {@link HystrixContextScheduler 和 {@link HystrixContextSchedulerWorker}
+ * 都基于装饰者模式内部维护了真实对象
+ * {@link ThreadPoolScheduler 和 {@link ThreadPoolWorker}
+ *
  * Wrap a {@link Scheduler} so that scheduled actions are wrapped with {@link HystrixContexSchedulerAction} so that
  * the {@link HystrixRequestContext} is properly copied across threads (if they are used by the {@link Scheduler}).
  */
 public class HystrixContextScheduler extends Scheduler {
 
     private final HystrixConcurrencyStrategy concurrencyStrategy;
+    /**
+     * 真实类型为 {@link ThreadPoolScheduler}
+     */
     private final Scheduler actualScheduler;
     private final HystrixThreadPool threadPool;
 
@@ -63,13 +73,25 @@ public class HystrixContextScheduler extends Scheduler {
         this.actualScheduler = new ThreadPoolScheduler(threadPool, shouldInterruptThread);
     }
 
+    /**
+     * 创建工作者。
+     *
+     * @return 类型为 {@link ThreadPoolWorker}
+     */
     @Override
     public Worker createWorker() {
         return new HystrixContextSchedulerWorker(actualScheduler.createWorker());
     }
 
+    /**
+     * 装饰者模式
+     * 内部维护了一个 {@link ThreadPoolWorker}
+     */
     private class HystrixContextSchedulerWorker extends Worker {
 
+        /**
+         * 类型为 {@link ThreadPoolWorker}
+         */
         private final Worker worker;
 
         private HystrixContextSchedulerWorker(Worker actualWorker) {
@@ -86,13 +108,19 @@ public class HystrixContextScheduler extends Scheduler {
             return worker.isUnsubscribed();
         }
 
+        /**
+         * 使用线程执行
+         */
         @Override
         public Subscription schedule(Action0 action, long delayTime, TimeUnit unit) {
+            // 判断线程是否已经满了
             if (threadPool != null) {
                 if (!threadPool.isQueueSpaceAvailable()) {
                     throw new RejectedExecutionException("Rejected command because thread-pool queueSize is at rejection threshold.");
                 }
             }
+            // 将任务提交到线程池执行，这里调试进去看看线程池调用
+            // 后面会进入 HystrixContextScheduler.ThreadPoolWorker#schedule(rx.functions.Action0)
             return worker.schedule(new HystrixContexSchedulerAction(concurrencyStrategy, action), delayTime, unit);
         }
 
@@ -167,8 +195,10 @@ public class HystrixContextScheduler extends Scheduler {
 
             subscription.add(sa);
             sa.addParent(subscription);
-
+            // 获取线程池
             ThreadPoolExecutor executor = (ThreadPoolExecutor) threadPool.getExecutor();
+            // 提交任务，开始执行后，最终会调用到 execution Observable的call方法
+            // com.netflix.hystrix.AbstractCommand.executeCommandWithSpecifiedIsolation
             FutureTask<?> f = (FutureTask<?>) executor.submit(sa);
             sa.add(new FutureCompleterWithConfigurableInterrupt(f, shouldInterruptThread, executor));
 
@@ -182,6 +212,7 @@ public class HystrixContextScheduler extends Scheduler {
     }
 
     /**
+     * 响应式的异步响应，支持取消异步。
      * Very similar to rx.internal.schedulers.ScheduledAction.FutureCompleter, but with configurable interrupt behavior
      */
     private static class FutureCompleterWithConfigurableInterrupt implements Subscription {
@@ -195,6 +226,7 @@ public class HystrixContextScheduler extends Scheduler {
             this.executor = executor;
         }
 
+        // 取消订阅的时候执行取消异步task，并视情况进行线程池中断
         @Override
         public void unsubscribe() {
             executor.remove(f);

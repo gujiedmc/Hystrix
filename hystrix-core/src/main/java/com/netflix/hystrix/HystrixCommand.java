@@ -35,6 +35,11 @@ import com.netflix.hystrix.strategy.properties.HystrixPropertiesStrategy;
 import rx.functions.Func0;
 
 /**
+ * 为AbstractCommand支持非响应式执行方法。
+ * 同步方法 {@link #execute()}
+ * 异步方法 {@link #queue()}
+ * 底层都是通过父类中的{@link AbstractCommand#toObservable()}实现。
+ *
  * Used to wrap code that will execute potentially risky functionality (typically meaning a service call over the network)
  * with fault and latency tolerance, statistics and performance metrics capture, circuit breaker and bulkhead functionality.
  * This command is essentially a blocking command but provides an Observable facade if used with observe()
@@ -293,6 +298,9 @@ public abstract class HystrixCommand<R> extends AbstractCommand<R> implements Hy
         throw new UnsupportedOperationException("No fallback available.");
     }
 
+    /**
+     * 将每个Command运行逻辑真正执行的方法 {@link #run()}封装为Observable
+     */
     @Override
     final protected Observable<R> getExecutionObservable() {
         return Observable.defer(new Func0<Observable<R>>() {
@@ -307,12 +315,16 @@ public abstract class HystrixCommand<R> extends AbstractCommand<R> implements Hy
         }).doOnSubscribe(new Action0() {
             @Override
             public void call() {
+                // 在执行订阅的时候保存执行的线程
                 // Save thread on which we get subscribed so that we can interrupt it later if needed
                 executionThread.set(Thread.currentThread());
             }
         });
     }
 
+    /**
+     * 将每个Command降级执行的方法 {@link #getFallback()}封装为Observable
+     */
     @Override
     final protected Observable<R> getFallbackObservable() {
         return Observable.defer(new Func0<Observable<R>>() {
@@ -328,6 +340,9 @@ public abstract class HystrixCommand<R> extends AbstractCommand<R> implements Hy
     }
 
     /**
+     * 同步执行
+     * 其实底层为 toObservable().blocking().toFuture().get()
+     *
      * Used for synchronous execution of command.
      * 
      * @return R
@@ -348,6 +363,10 @@ public abstract class HystrixCommand<R> extends AbstractCommand<R> implements Hy
     }
 
     /**
+     *  异步执行。
+     *  其实内部维护了一个 toObservable().blocking().toFuture()的Future，不支持取消
+     *  在此基础上封装了{@link Future#cancel}提供了基于{@link Thread#interrupt()} 的取消执行的方法。
+     *
      * Used for asynchronous execution of command.
      * <p>
      * This will queue up the command on the thread pool and return an {@link Future} to get the result once it completes.

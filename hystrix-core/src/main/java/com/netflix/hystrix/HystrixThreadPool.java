@@ -32,6 +32,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Hystrix用于线程池隔离的对 java.util.ThreadPooExecutor 的封装。
+ *
  * ThreadPool used to executed {@link HystrixCommand#run()} on separate threads when configured to do so with {@link HystrixCommandProperties#executionIsolationStrategy()}.
  * <p>
  * Typically each {@link HystrixCommandGroupKey} has its own thread-pool so that any one group of commands can not starve others from being able to run.
@@ -47,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 public interface HystrixThreadPool {
 
     /**
+     * 获取内部线程池
      * Implementation of {@link ThreadPoolExecutor}.
      *
      * @return ThreadPoolExecutor
@@ -156,16 +159,22 @@ public interface HystrixThreadPool {
     }
 
     /**
+     * 默认的Hystrix线程池队列
+     *
      * @ExcludeFromJavadoc
      * @ThreadSafe
      */
     /* package */static class HystrixThreadPoolDefault implements HystrixThreadPool {
         private static final Logger logger = LoggerFactory.getLogger(HystrixThreadPoolDefault.class);
-
+        // 线程池配置
         private final HystrixThreadPoolProperties properties;
+        // 队列
         private final BlockingQueue<Runnable> queue;
+        // JDK线程池委托
         private final ThreadPoolExecutor threadPool;
+        // 当前线程池的指标收集器
         private final HystrixThreadPoolMetrics metrics;
+        // 队列长度
         private final int queueSize;
 
         public HystrixThreadPoolDefault(HystrixThreadPoolKey threadPoolKey, HystrixThreadPoolProperties.Setter propertiesDefaults) {
@@ -173,9 +182,11 @@ public interface HystrixThreadPool {
             HystrixConcurrencyStrategy concurrencyStrategy = HystrixPlugins.getInstance().getConcurrencyStrategy();
             this.queueSize = properties.maxQueueSize().get();
 
+            // 这里会创建内部维护的JDK的线程池
             this.metrics = HystrixThreadPoolMetrics.getInstance(threadPoolKey,
                     concurrencyStrategy.getThreadPool(threadPoolKey, properties),
                     properties);
+            // 直接使用上面创建的线程池
             this.threadPool = this.metrics.getThreadPool();
             this.queue = this.threadPool.getQueue();
 
@@ -200,12 +211,17 @@ public interface HystrixThreadPool {
             });
         }
 
+        /**
+         * 通过当前线程池创建一个rx调度器 {@link Scheduler}
+         * @param shouldInterruptThread 用来判断是否可以中断线程池的function
+         */
         @Override
         public Scheduler getScheduler(Func0<Boolean> shouldInterruptThread) {
             touchConfig();
             return new HystrixContextScheduler(HystrixPlugins.getInstance().getConcurrencyStrategy(), this, shouldInterruptThread);
         }
 
+        // 从配置文件中加载配置到线程池，每次获取调度器都执行，可以动态修改
         // allow us to change things via fast-properties by setting it each time
         private void touchConfig() {
             final int dynamicCoreSize = properties.coreSize().get();

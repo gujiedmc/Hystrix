@@ -146,6 +146,8 @@ public class Hystrix {
     }
 
     /**
+     * 基于Trieber算法的可并发的堆队列
+     *
      * Trieber's algorithm for a concurrent stack
      * @param <E>
      */

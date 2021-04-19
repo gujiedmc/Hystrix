@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
+ * 基于{@link HystrixCommandBuilder} 构建 HystrixCommand
  * Base class for hystrix commands.
  *
  * @param <T> the return type

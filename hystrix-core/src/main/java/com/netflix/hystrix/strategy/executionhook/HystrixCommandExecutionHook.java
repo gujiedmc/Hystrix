@@ -24,6 +24,10 @@ import com.netflix.hystrix.exception.HystrixRuntimeException.FailureType;
 import com.netflix.hystrix.strategy.HystrixPlugins;
 
 /**
+ * 用来记录Command生命周期的hook。
+ * 包括启动、error、发射、缓存等等。
+ * 全局单例，因此实现需要保证线程安全。
+ *
  * Abstract ExecutionHook with invocations at different lifecycle points of {@link HystrixCommand}
  * and {@link HystrixObservableCommand} execution with default no-op implementations.
  * <p>

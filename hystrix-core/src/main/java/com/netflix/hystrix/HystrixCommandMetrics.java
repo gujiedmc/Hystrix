@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * 命令执行指标
  * Used by {@link HystrixCommand} to record metrics.
  */
 public class HystrixCommandMetrics extends HystrixMetrics {
