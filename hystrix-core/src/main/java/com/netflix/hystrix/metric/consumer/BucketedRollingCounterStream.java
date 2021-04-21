@@ -25,13 +25,18 @@ import rx.functions.Func2;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * 在BucketedCounterStream的基础上，进行窗口滚动，选择最新的{@link #numBuckets}条数据，并跳过1条旧数据
+ *
  * Refinement of {@link BucketedCounterStream} which reduces numBuckets at a time.
  *
- * @param <Event> type of raw data that needs to get summarized into a bucket
- * @param <Bucket> type of data contained in each bucket
- * @param <Output> type of data emitted to stream subscribers (often is the same as A but does not have to be)
+ * @param <Event> type of raw data that needs to get summarized into a bucket  事件类型
+ * @param <Bucket> type of data contained in each bucket 每个bucket的类型
+ * @param <Output> type of data emitted to stream subscribers (often is the same as A but does not have to be) 传递给订阅者的数据类型，由bucket创建
  */
 public abstract class BucketedRollingCounterStream<Event extends HystrixEvent, Bucket, Output> extends BucketedCounterStream<Event, Bucket, Output> {
+    /**
+     * 用来给外部订阅使用的流
+     */
     private Observable<Output> sourceStream;
     private final AtomicBoolean isSourceCurrentlySubscribed = new AtomicBoolean(false);
 
@@ -45,9 +50,16 @@ public abstract class BucketedRollingCounterStream<Event extends HystrixEvent, B
                 return window.scan(getEmptyOutputValue(), reduceBucket).skip(numBuckets);
             }
         };
-        this.sourceStream = bucketedStream      //stream broken up into buckets
-                .window(numBuckets, 1)          //emit overlapping windows of buckets
-                .flatMap(reduceWindowToSummary) //convert a window of bucket-summaries into a single summary
+        this.sourceStream =
+                // bucket 输出流
+                //stream broken up into buckets
+                bucketedStream
+                // emit overlapping windows of buckets
+                // 进行窗口滚动
+                .window(numBuckets, 1)
+                // 将 bucket 压缩到一个 <Output> 对象中
+                // convert a window of bucket-summaries into a single summary
+                .flatMap(reduceWindowToSummary)
                 .doOnSubscribe(new Action0() {
                     @Override
                     public void call() {
@@ -60,8 +72,12 @@ public abstract class BucketedRollingCounterStream<Event extends HystrixEvent, B
                         isSourceCurrentlySubscribed.set(false);
                     }
                 })
-                .share()                        //multiple subscribers should get same data
-                .onBackpressureDrop();          //if there are slow consumers, data should not buffer
+                // 多个订阅共享相同数据
+                // multiple subscribers should get same data
+                .share()
+                // 当有消费者消费慢的时候丢弃数据
+                // if there are slow consumers, data should not buffer
+                .onBackpressureDrop();
     }
 
     @Override

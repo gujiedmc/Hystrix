@@ -30,21 +30,41 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ * 基于时间窗口进行数据统计，每隔指定时间产生一个窗口bucket。
+ *
  * Abstract class that imposes a bucketing structure and provides streams of buckets
  *
- * @param <Event> type of raw data that needs to get summarized into a bucket
- * @param <Bucket> type of data contained in each bucket
- * @param <Output> type of data emitted to stream subscribers (often is the same as A but does not have to be)
+ * @param <Event> type of raw data that needs to get summarized into a bucket  事件类型
+ * @param <Bucket> type of data contained in each bucket 每个bucket的类型
+ * @param <Output> type of data emitted to stream subscribers (often is the same as A but does not have to be) 传递给订阅者的数据类型，由bucket创建
  */
 public abstract class BucketedCounterStream<Event extends HystrixEvent, Bucket, Output> {
+    /**
+     * 存储桶的数量
+     */
     protected final int numBuckets;
+    /**
+     * bucket 产生的流，通过{@link #reduceBucketToSummary}将指定时间内的多个 <Event> 压缩成 <Bucket>
+     */
     protected final Observable<Bucket> bucketedStream;
     protected final AtomicReference<Subscription> subscription = new AtomicReference<Subscription>(null);
-
+    /**
+     * 将多个 <Event> 压缩成 <Bucket>
+     */
     private final Func1<Observable<Event>, Observable<Bucket>> reduceBucketToSummary;
-
+    /**
+     * 最新的Output缓存
+     */
     private final BehaviorSubject<Output> counterSubject = BehaviorSubject.create(getEmptyOutputValue());
 
+    /**
+     * 创建基于时间窗口的计数器。
+     *
+     * @param inputEventStream 事件输入流
+     * @param numBuckets bucket的数量
+     * @param bucketSizeInMs 时间窗口的大小
+     * @param appendRawEventToBucket 将一段时间内的所有事件合并为一个bucket
+     */
     protected BucketedCounterStream(final HystrixEventStream<Event> inputEventStream, final int numBuckets, final int bucketSizeInMs,
                                     final Func2<Bucket, Event, Bucket> appendRawEventToBucket) {
         this.numBuckets = numBuckets;
@@ -63,11 +83,17 @@ public abstract class BucketedCounterStream<Event extends HystrixEvent, Bucket, 
         this.bucketedStream = Observable.defer(new Func0<Observable<Bucket>>() {
             @Override
             public Observable<Bucket> call() {
-                return inputEventStream
+                return inputEventStream // 事件流
                         .observe()
-                        .window(bucketSizeInMs, TimeUnit.MILLISECONDS) //bucket it by the counter window so we can emit to the next operator in time chunks, not on every OnNext
-                        .flatMap(reduceBucketToSummary)                //for a given bucket, turn it into a long array containing counts of event types
-                        .startWith(emptyEventCountsToStart);           //start it with empty arrays to make consumer logic as generic as possible (windows are always full)
+                        // 时间窗口
+                        // bucket it by the counter window so we can emit to the next operator in time chunks, not on every OnNext
+                        .window(bucketSizeInMs, TimeUnit.MILLISECONDS)
+                        // 将一个时间窗口的数据进行压缩，返回一个 <Bucket> 类型的数据
+                        // for a given bucket, turn it into a long array containing counts of event types
+                        .flatMap(reduceBucketToSummary)
+                        // 以一个空窗口开始记录
+                        // start it with empty arrays to make consumer logic as generic as possible (windows are always full)
+                        .startWith(emptyEventCountsToStart);
             }
         });
     }
@@ -82,6 +108,9 @@ public abstract class BucketedCounterStream<Event extends HystrixEvent, Bucket, 
      */
     public abstract Observable<Output> observe();
 
+    /**
+     * 订阅滚动窗口流进行缓存
+     */
     public void startCachingStreamValuesIfUnstarted() {
         if (subscription.get() == null) {
             //the stream is not yet started

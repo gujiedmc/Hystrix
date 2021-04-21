@@ -24,6 +24,8 @@ import rx.functions.Func2;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * 进行累计计算的时间窗口计数器。
+ *
  * Refinement of {@link BucketedCounterStream} which accumulates counters infinitely in the bucket-reduction step
  *
  * @param <Event> type of raw data that needs to get summarized into a bucket

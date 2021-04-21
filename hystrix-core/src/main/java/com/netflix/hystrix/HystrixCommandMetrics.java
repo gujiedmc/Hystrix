@@ -47,6 +47,9 @@ public class HystrixCommandMetrics extends HystrixMetrics {
 
     private static final HystrixEventType[] ALL_EVENT_TYPES = HystrixEventType.values();
 
+    /**
+     * 将一次执行结果中的所有事件数量依据事件枚举顺序放入到新的数组中，初始化操作
+     */
     public static final Func2<long[], HystrixCommandCompletion, long[]> appendEventToBucket = new Func2<long[], HystrixCommandCompletion, long[]>() {
         @Override
         public long[] call(long[] initialCountArray, HystrixCommandCompletion execution) {
@@ -63,6 +66,9 @@ public class HystrixCommandMetrics extends HystrixMetrics {
         }
     };
 
+    /**
+     * 将一次执行结果中的所有事件数量依据事件枚举顺序放入到已有的数组中，也就是合并操作。
+     */
     public static final Func2<long[], long[], long[]> bucketAggregator = new Func2<long[], long[], long[]>() {
         @Override
         public long[] call(long[] cumulativeEvents, long[] bucketEventCounts) {
@@ -381,13 +387,17 @@ public class HystrixCommandMetrics extends HystrixMetrics {
     }
 
     /**
+     * 执行结果异常比例计数
      * Number of requests during rolling window.
      * Number that failed (failure + success + timeout + threadPoolRejected + semaphoreRejected).
      * Error percentage;
      */
     public static class HealthCounts {
+        // 执行总次数
         private final long totalCount;
+        // 错误次数
         private final long errorCount;
+        // 错误比例
         private final int errorPercentage;
 
         HealthCounts(long total, long error) {
