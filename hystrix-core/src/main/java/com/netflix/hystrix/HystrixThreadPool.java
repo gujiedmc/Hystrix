@@ -266,6 +266,7 @@ public interface HystrixThreadPool {
         }
 
         /**
+         * 判断当前线程队列是否已满
          * Whether the threadpool queue has space available according to the <code>queueSizeRejectionThreshold</code> settings.
          *
          * Note that the <code>queueSize</code> is an final instance variable on HystrixThreadPoolDefault, and not looked up dynamically.
